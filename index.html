@@ -140,7 +140,7 @@
 
         .messages-container {
             flex: 1; overflow-y: auto; padding: 20px;
-            background-image: url("image.png");
+            background-image: url("https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png");
             background-repeat: repeat;
         }
 
@@ -215,11 +215,73 @@
 
         /* --- ADD USER MODAL --- */
         #modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 2500; display: flex; justify-content: center; align-items: center; }
-        .modal-box { background: var(--bg-secondary); padding: 30px; border-radius: 12px; width: 350px; text-align: center; border: 1px solid white;}
+        .modal-box { background: var(--bg-secondary); padding: 30px; border-radius: 12px; width: 350px; text-align: center; }
+        
+        /* --- RESPONSIVE DESIGN --- */
+        @media (max-width: 1024px) {
+            .app-container { max-width: 100%; }
+            .sidebar { width: 300px; }
+            .chat-header { width: 60%; right: 80px; }
+        }
+
         @media (max-width: 768px) {
-            .app-container { flex-direction: column; }
-            .sidebar { width: 100%; height: 200px; border-right: none; border-bottom: 1px solid #080e13; }
+            body { height: 100vh; }
+            .app-container { flex-direction: column; max-width: 100%; }
+            .sidebar { width: 100%; height: auto; max-height: 40vh; border-right: none; border-bottom: 1px solid #080e13; }
+            .contacts-list { max-height: calc(40vh - 100px); }
             .chat-area { flex: 1; }
+            .chat-header { width: 100%; right: 0; top: 0; border-radius: 0; position: relative; }
+            .messages-container { height: calc(100% - 140px); }
+            .input-area { width: 100%; }
+            .msg-in, .msg-out { width: auto; max-width: 85%; }
+            #toast-container { bottom: 80px; left: 10px; right: 10px; }
+            .toast { min-width: auto; width: 100%; }
+        }
+
+        @media (max-width: 480px) {
+            body { font-size: 14px; }
+            .auth-card { width: 95%; padding: 20px; }
+            .auth-card h1 { font-size: 24px; }
+            .sidebar { height: auto; max-height: 35vh; }
+            .contacts-list { max-height: calc(35vh - 100px); }
+            .contact-item { padding: 10px 15px; }
+            .avatar { width: 40px; height: 40px; font-size: 16px; margin-right: 10px; }
+            .user-info h4 { font-size: 14px; }
+            .user-info p { font-size: 12px; max-width: 150px; }
+            .chat-header { height: 50px; padding: 0 10px; }
+            .chat-actions button { font-size: 18px; margin-left: 10px; }
+            .messages-container { padding: 10px; background-size: 100px; }
+            .msg-bubble { padding: 8px 12px; font-size: 14px; }
+            .msg-in, .msg-out { width: auto; max-width: 90%; }
+            .msg-meta { font-size: 10px; }
+            .input-area { padding: 10px; gap: 10px; }
+            .msg-input { padding: 10px; font-size: 14px; height: 40px; }
+            .attach-btn, .voice-btn, .send-btn { font-size: 18px; }
+            .video-container { height: 40vh; }
+            #local-video { width: 100px; height: 70px; bottom: 10px; right: 10px; }
+            .call-btn { width: 50px; height: 50px; font-size: 20px; }
+            #call-status { font-size: 16px; }
+            .modal-box { width: 90%; padding: 20px; }
+        }
+
+        @media (max-width: 360px) {
+            .auth-card { padding: 15px; }
+            .auth-card h1 { font-size: 20px; margin-bottom: 15px; }
+            .form-group { margin-bottom: 15px; }
+            .styled-input { padding: 10px; font-size: 14px; }
+            .btn-primary { padding: 10px; font-size: 14px; }
+            .sidebar { max-height: 30vh; }
+            .contacts-list { max-height: calc(30vh - 100px); }
+            .contact-item { padding: 8px 10px; }
+            .avatar { width: 36px; height: 36px; font-size: 14px; margin-right: 8px; }
+            .user-info h4 { font-size: 13px; }
+            .user-info p { font-size: 11px; max-width: 120px; }
+            .chat-header { display: none; }
+            .messages-container { height: calc(100% - 100px); padding: 8px; }
+            .msg-bubble { padding: 6px 10px; font-size: 13px; }
+            .input-area { padding: 8px; gap: 8px; }
+            .msg-input { padding: 8px; font-size: 13px; }
+            .attach-btn, .voice-btn, .send-btn { font-size: 16px; }
         }
     </style>
 </head>
