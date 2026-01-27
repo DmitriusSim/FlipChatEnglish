@@ -49,7 +49,7 @@
         /* --- LOGIN SCREEN --- */
         #auth-screen {
             position: fixed; inset: 0; z-index: 2000;
-            background: var(--bg-primary);
+            background: url('image.png');
             display: flex; align-items: center; justify-content: center;
         }
         .auth-card {
@@ -119,7 +119,7 @@
         /* --- CHAT AREA --- */
         .chat-area {
             flex: 1; display: flex; flex-direction: column;
-            background: var(--bg-primary);
+            background: url('image.png') center/cover no-repeat;
             position: relative;
         }
         .chat-header {
@@ -140,7 +140,7 @@
 
         .messages-container {
             flex: 1; overflow-y: auto; padding: 20px;
-            background-image: url("https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png");
+            background-image: url("image.png") center/cover no-repeat;
             background-repeat: repeat;
         }
 
@@ -251,8 +251,8 @@
             .chat-header { height: 50px; padding: 0 10px; }
             .chat-actions button { font-size: 18px; margin-left: 10px; }
             .messages-container { padding: 10px; background-size: 100px; }
-            .msg-bubble { padding: 8px 12px; font-size: 14px; }
-            .msg-in, .msg-out { width: auto; max-width: 90%; }
+            .msg-bubble { font-size: 14px; }
+            .msg-in, .msg-out { width: auto;  }
             .msg-meta { font-size: 10px; }
             .input-area { padding: 10px; gap: 10px; }
             .msg-input { padding: 10px; font-size: 14px; height: 40px; }
@@ -278,7 +278,7 @@
             .user-info p { font-size: 11px; max-width: 120px; }
             .chat-header { display: none; }
             .messages-container { height: calc(100% - 100px); padding: 8px; }
-            .msg-bubble { padding: 6px 10px; font-size: 13px; }
+            .msg-bubble {  font-size: 13px; }
             .input-area { padding: 8px; gap: 8px; }
             .msg-input { padding: 8px; font-size: 13px; }
             .attach-btn, .voice-btn, .send-btn { font-size: 16px; }
