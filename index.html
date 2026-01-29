@@ -203,6 +203,21 @@
         }
         .btn-hangup { background: var(--danger); }
         .btn-mute { background: var(--bg-secondary); }
+        .video-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            width: 90%;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .video-grid video {
+            width: 100%;
+            border-radius: 12px;
+            background: #222;
+            transform: scaleX(-1); /* Mirror effect */
+        }
 
         /* --- TOASTS --- */
         #toast-container { position: fixed; bottom: 20px; left: 20px; z-index: 4000; display: flex; flex-direction: column; gap: 10px; }
@@ -301,9 +316,13 @@
     </div>
 
     <div id="call-modal" class="hidden">
-        <div class="video-container">
-            <video id="remote-video" autoplay playsinline></video>
-            <video id="local-video" autoplay playsinline muted></video>
+        <div id="call-modal" class="hidden">
+            <div class="video-grid" id="video-grid">
+                <video id="local-video" autoplay playsinline muted></video>
+                </div>
+            <div class="call-controls">
+                <button class="call-btn btn-hangup" onclick="CallService.endCall()"><i class="fas fa-phone-slash"></i></button>
+            </div>
         </div>
         <h3 id="call-status" style="margin-bottom: 20px; color:white">Connecting...</h3>
         <div class="call-controls">
@@ -323,11 +342,26 @@
         </div>
     </div>
 
+    <div id="group-modal-overlay" class="hidden">
+        <div class="modal-box">
+            <h3>Create New Group</h3>
+            <input type="text" id="group-name-input" class="styled-input" placeholder="Group Name" style="margin-bottom: 10px;">
+            <input type="text" id="group-members-input" class="styled-input" placeholder="Members (comma separated)" style="margin-bottom: 15px;">
+            <div style="display: flex; gap: 10px;">
+                <button class="btn-primary" style="background: var(--bg-primary)" onclick="UIManager.toggleGroupModal(false)">Cancel</button>
+                <button class="btn-primary" onclick="ChatService.createGroup()">Create</button>
+            </div>
+        </div>
+    </div>
+
     <div class="app-container hidden" id="main-app">
         <div class="sidebar">
             <div class="sidebar-header">
                 <span>Flip Chat</span>
-                <button class="voice-btn" onclick="UIManager.toggleModal(true)"><i class="fas fa-user-plus"></i></button>
+                <div style="display: flex; gap: 10px;">
+                    <button class="voice-btn" onclick="UIManager.toggleGroupModal(true)"><i class="fas fa-users"></i></button>
+                    <button class="voice-btn" onclick="UIManager.toggleModal(true)"><i class="fas fa-user-plus"></i></button>
+                </div>
             </div>
             <div class="sidebar-search">
                 <input type="text" class="search-input" placeholder="Search..." onkeyup="UIManager.filterContacts(this.value)">
@@ -386,6 +420,7 @@
         messagingSenderId: "460204241807",
         appId: "1:460204241807:web:99c0fbf123fb4246cad1fa"
     };
+
 
     // Initialization
     firebase.initializeApp(firebaseConfig);
@@ -467,14 +502,14 @@
         static async addContact() {
             const target = document.getElementById('new-contact-input').value.trim();
             if(!target || target === AppState.user) return;
-
+            
             try {
                 const userDoc = await db.collection("users").doc(target).get();
                 if(!userDoc.exists) {
                     NotificationSystem.show("User not found", "error");
                     return;
                 }
-
+                
                 const batch = db.batch();
                 const myContactRef = db.collection("users").doc(AppState.user).collection("contacts").doc(target);
                 const theirContactRef = db.collection("users").doc(target).collection("contacts").doc(AppState.user);
@@ -528,7 +563,19 @@
 
             this.listenMessages();
         }
+        static createGroup = () => {
+            const name = document.getElementById('group-name-input').value;
+            const members = document.getElementById('group-members-input').value.split(',');
+            
+            if(!name) return alert("Group name required");
 
+            const groupId = "group_" + Date.now();
+            // Logic: Send a 'join-group' event to your signaling server (Socket.io/Firebase)
+            // this.socket.emit('create-group', { groupId, name, members });
+            
+            UIManager.toggleGroupModal(false);
+            this.addContactToSidebar({ id: groupId, name: name, isGroup: true });
+        };
         static listenMessages() {
             const container = document.getElementById('messages-container');
             container.innerHTML = ''; 
@@ -643,6 +690,16 @@
                         ]
                     }
                 });
+
+                CallService.addParticipantVideo = (stream, participantId) => {
+                    const grid = document.getElementById('video-grid');
+                    const video = document.createElement('video');
+                    video.id = `video-${participantId}`;
+                    video.srcObject = stream;
+                    video.autoplay = true;
+                    video.playsinline = true;
+                    grid.appendChild(video);
+                };
                 
                 AppState.peer.on('open', (id) => {
                     console.log('My peer ID is: ' + id);
@@ -657,7 +714,6 @@
                         call.close();
                     }
                 });
-
                 AppState.peer.on('error', (err) => {
                     console.error('Peer error:', err);
                     if(err.type === 'invalid-id') {
@@ -786,6 +842,10 @@
             el.onclick = () => ChatService.selectChat(data.name);
             list.appendChild(el);
         }
+        static toggleGroupModal = (show) => {
+            document.getElementById('group-modal-overlay').classList.toggle('hidden', !show);
+        };
+
 
         static renderMessage(data) {
             const container = document.getElementById('messages-container');
