@@ -306,12 +306,31 @@
 
     <div id="auth-screen">
         <div class="auth-card">
-            <h1>Flip Chat <i class="fab fa-telegram-plane"></i></h1>
+            <h1 id="auth-title">Login <i class="fab fa-telegram-plane"></i></h1>
+            
             <div class="form-group">
-                <label>Choose a nickname</label>
-                <input type="text" id="username-input" class="styled-input" placeholder="Example: CyberNeo">
+                <label>Username</label>
+                <input type="text" id="username-input" class="styled-input" placeholder="CyberNeo">
             </div>
-            <button class="btn-primary" onclick="AuthService.login()">LOGIN</button>
+
+            <div class="form-group">
+                <label>Password</label>
+                <input type="password" id="password-input" class="styled-input" placeholder="••••••••">
+            </div>
+
+            <div id="register-fields" class="hidden">
+                <div class="form-group">
+                    <label>Phone Number</label>
+                    <input type="tel" id="phone-input" class="styled-input" placeholder="+123456789">
+                </div>
+            </div>
+
+            <button class="btn-primary" id="auth-submit-btn" onclick="AuthService.handleAuth()">LOGIN</button>
+            
+            <p style="margin-top: 20px; font-size: 14px; color: var(--text-secondary);">
+                <span id="toggle-text">Don't have an account?</span> 
+                <a href="javascript:void(0)" onclick="AuthService.toggleMode()" id="toggle-link" style="color: var(--accent); text-decoration: none;">Register</a>
+            </p>
         </div>
     </div>
 
@@ -464,33 +483,86 @@
      * AUTH SERVICE
      */
     class AuthService {
-        static async login() {
+        static isRegisterMode = false;
+
+        static toggleMode() {
+            this.isRegisterMode = !this.isRegisterMode;
+            const regFields = document.getElementById('register-fields');
+            const title = document.getElementById('auth-title');
+            const btn = document.getElementById('auth-submit-btn');
+            const link = document.getElementById('toggle-link');
+            const text = document.getElementById('toggle-text');
+
+            if (this.isRegisterMode) {
+                regFields.classList.remove('hidden');
+                title.innerHTML = 'Register <i class="fab fa-telegram-plane"></i>';
+                btn.textContent = 'CREATE ACCOUNT';
+                text.textContent = 'Already have an account?';
+                link.textContent = 'Login';
+            } else {
+                regFields.classList.add('hidden');
+                title.innerHTML = 'Login <i class="fab fa-telegram-plane"></i>';
+                btn.textContent = 'LOGIN';
+                text.textContent = "Don't have an account?";
+                link.textContent = 'Register';
+            }
+        }
+
+        static async handleAuth() {
             const username = document.getElementById('username-input').value.trim();
-            if(username.length < 3) {
-                NotificationSystem.show("Username must be longer than 3 characters", "error");
+            const password = document.getElementById('password-input').value;
+            const phone = document.getElementById('phone-input').value.trim();
+
+            if (username.length < 3 || password.length < 4) {
+                NotificationSystem.show("Username/Password too short", "error");
                 return;
             }
 
             try {
-                await db.collection("users").doc(username).set({
-                    name: username,
-                    lastSeen: firebase.firestore.FieldValue.serverTimestamp(),
-                    online: true
-                }, { merge: true });
+                const userDocRef = db.collection("users").doc(username);
+                const doc = await userDocRef.get();
 
+                if (this.isRegisterMode) {
+                    // REGISTER LOGIC
+                    if (doc.exists) {
+                        NotificationSystem.show("Username already taken!", "error");
+                        return;
+                    }
+                    if (!phone) {
+                        NotificationSystem.show("Phone number required", "error");
+                        return;
+                    }
+                    await userDocRef.set({
+                        name: username,
+                        password: password,
+                        phone: phone,
+                        online: true,
+                        lastSeen: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                } else {
+                    // LOGIN LOGIC
+                    if (!doc.exists) {
+                        NotificationSystem.show("User does not exist!", "error");
+                        return;
+                    }
+                    if (doc.data().password !== password) {
+                        NotificationSystem.show("Incorrect password!", "error");
+                        return;
+                    }
+                    await userDocRef.update({ online: true });
+                }
+
+                // Success: Enter App
                 AppState.user = username;
-                NotificationSystem.show(`Welcome, ${username}!`);
-                
                 document.getElementById('auth-screen').classList.add('hidden');
                 document.getElementById('main-app').classList.remove('hidden');
-                document.getElementById('main-app').classList.add('fade-in');
-
                 CallService.init();
                 ChatService.loadContacts();
+                NotificationSystem.show(`Logged in as ${username}`);
 
             } catch (e) {
                 console.error(e);
-                NotificationSystem.show("Server connection error", "error");
+                NotificationSystem.show("Authentication failed", "error");
             }
         }
     }
@@ -727,11 +799,71 @@
                     this.peerReady = false;
                     AppState.peer.reconnect();
                 });
-            } catch(e) {
-                console.error('Failed to init peer:', e);
+                } catch(e) {
+                    console.error('Failed to init peer:', e);
             }
         }
+        static async startCall() {
+    if (!AppState.currentChatUser) return;
+    
+    document.getElementById('call-modal').classList.remove('hidden');
+    document.getElementById('call-status').textContent = "Calling " + AppState.currentChatUser + "...";
 
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        AppState.mediaStream = stream;
+        document.getElementById('local-video').srcObject = stream;
+
+        // Call the remote peer
+        const call = AppState.peer.call(AppState.currentChatUser, stream);
+        this.handleCall(call);
+    } catch (err) {
+        NotificationSystem.show("Could not access camera/mic", "error");
+        this.endCall();
+    }
+}
+
+static answerCall(call) {
+    navigator.mediaDevices.getUserMedia({ video: true, audio: true }).then(stream => {
+        AppState.mediaStream = stream;
+        document.getElementById('call-modal').classList.remove('hidden');
+        document.getElementById('local-video').srcObject = stream;
+        
+        call.answer(stream);
+        this.handleCall(call);
+    });
+}
+
+static handleCall(call) {
+    AppState.currentCall = call;
+    call.on('stream', (remoteStream) => {
+        // Find or create remote video element
+        let remoteVid = document.getElementById('remote-video');
+        if(!remoteVid) {
+             remoteVid = document.createElement('video');
+             remoteVid.id = "remote-video";
+             remoteVid.autoplay = true;
+             remoteVid.playsinline = true;
+             document.getElementById('video-grid').appendChild(remoteVid);
+        }
+        remoteVid.srcObject = remoteStream;
+        document.getElementById('call-status').textContent = "Connected";
+    });
+    
+    call.on('close', () => this.endCall());
+}
+
+static endCall() {
+    if (AppState.mediaStream) {
+        AppState.mediaStream.getTracks().forEach(track => track.stop());
+    }
+    if (AppState.currentCall) AppState.currentCall.close();
+    
+    document.getElementById('call-modal').classList.add('hidden');
+    // Clear remote videos
+    const remoteVid = document.getElementById('remote-video');
+    if(remoteVid) remoteVid.remove();
+}
         static async startCall() {
             if(!AppState.currentChatUser) {
                 NotificationSystem.show("Select a contact", "error");
@@ -769,58 +901,7 @@
             }
         }
 
-        static async answerCall(call) {
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-                AppState.mediaStream = stream;
-                
-                document.getElementById('call-modal').classList.remove('hidden');
-                document.getElementById('call-status').textContent = `Call with ${call.peer}`;
-                document.getElementById('local-video').srcObject = stream;
 
-                call.answer(stream);
-                AppState.currentCall = call;
-                this.handleCallStream(call);
-            } catch(e) {
-                console.error('Answer call error:', e);
-                NotificationSystem.show("Answer error: " + e.message, "error");
-            }
-        }
-
-        static handleCallStream(call) {
-            call.on('stream', (remoteStream) => {
-                console.log('Received remote stream');
-                document.getElementById('remote-video').srcObject = remoteStream;
-                document.getElementById('call-status').textContent = `Call connected`;
-                NotificationSystem.show("Call connected");
-            });
-
-            call.on('close', () => {
-                console.log('Call closed');
-                this.endCall(true);
-            });
-            
-            call.on('error', (err) => {
-                console.error('Call error:', err);
-                NotificationSystem.show("Call error", "error");
-                this.endCall(true);
-            });
-        }
-
-        static endCall(remoteClosed = false) {
-            // Check for null to prevent looping
-            if(AppState.currentCall) {
-                AppState.currentCall.close();
-                AppState.currentCall = null;
-            }
-            if(AppState.mediaStream) {
-                AppState.mediaStream.getTracks().forEach(track => track.stop());
-                AppState.mediaStream = null;
-            }
-            
-            document.getElementById('call-modal').classList.add('hidden');
-            if(!remoteClosed) NotificationSystem.show("Call ended");
-        }
     }
 
     /**
