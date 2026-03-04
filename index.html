@@ -14,19 +14,33 @@
     <style>
         /* --- CORE VARIABLES --- */
         :root {
-            --bg-primary: #0e1621;
-            --bg-secondary: #17212b;
-            --bg-hover: #202b36;
-            --accent: #5288c1;
-            --accent-hover: #4a7bb0;
-            --text-primary: #ffffff;
-            --text-secondary: #7d8b99;
-            --msg-in: #182533;
-            --msg-out: #2b5278;
-            --danger: #ff5b5b;
-            --success: #00c853;
+            --bg-primary: #f5e6cc; /* Light beige matching dog fur */
+            --bg-secondary: #d9c2a3; /* Slightly darker beige */
+            --bg-hover: #c4a484; /* Warm brown for hover */
+            --accent: #8b5e3c; /* Dark brown for accents */
+            --accent-hover: #7a4f2e; /* Slightly darker brown */
+            --text-primary: #4a2c1a; /* Deep brown for text */
+            --text-secondary: #6b4a2f; /* Softer brown for secondary text */
+            --msg-in: #e8d5b7; /* Light beige for incoming messages */
+            --msg-out: #d1b899; /* Medium beige for outgoing messages */
+            --danger: #ff5b5b; /* Keeping danger color */
+            --success: #00c853; /* Keeping success color */
             --shadow: 0 4px 12px rgba(0,0,0,0.3);
             --radius: 12px;
+        }
+
+        /* --- LOGO STYLING --- */
+        .logo {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 20px;
+        }
+
+        .logo img {
+            width: 100px; /* Adjust size as needed */
+            height: auto;
+            border-radius: 50%; /* Optional: make it circular */
         }
 
         /* --- RESET & BASE --- */
@@ -40,6 +54,7 @@
             display: flex;
             justify-content: center;
         }
+        .png{ height: 80px; position: absolute; top: 73px;}
 
         /* --- UTILS --- */
         .hidden { display: none !important; }
@@ -49,7 +64,7 @@
         /* --- LOGIN SCREEN --- */
         #auth-screen {
             position: fixed; inset: 0; z-index: 2000;
-            background: url('image.png');
+            background: url('image.png') center/cover no-repeat;
             display: flex; align-items: center; justify-content: center;
         }
         .auth-card {
@@ -152,12 +167,12 @@
             box-shadow: 0 1px 2px rgba(0,0,0,0.2);
             border: 1px solid white;
         }
-        .msg-in { align-self: flex-start; background: #535353; border-bottom-left-radius: 2px; border-radius: 10px; width: 150px; }
-        .msg-out { align-self: flex-end; background: var(--msg-out); background: #4a7bb0; border-bottom-right-radius: 2px; border-radius: 10px; width: 150px;}
+        .msg-in { align-self: flex-start; color: white; background: #535353; border-bottom-left-radius: 2px; border-radius: 10px; width: 150px; }
+        .msg-out { align-self: flex-end; color: white; background: var(--msg-out); background: #b0804a; border-bottom-right-radius: 2px; border-radius: 10px; width: 150px;}
         
         .msg-meta {
             display: flex; justify-content: flex-end; align-items: center;
-            margin-top: 4px; font-size: 11px; color: rgba(255,255,255,0.5);
+            margin-top: 4px; font-size: 11px; color: rgb(255, 255, 255);
         }
         .msg-media img { max-width: 100%; border-radius: 8px; margin-bottom: 5px; cursor: pointer; }
         .msg-audio audio { height: 32px; max-width: 250px; }
@@ -306,7 +321,7 @@
 
     <div id="auth-screen">
         <div class="auth-card">
-            <h1 id="auth-title">Login <i class="fab fa-telegram-plane"></i></h1>
+            <h1 id="auth-title">Login <i class="png"><img src="bedniy.png" alt="" class="png"></i></h1>
             
             <div class="form-group">
                 <label>Username</label>
@@ -552,6 +567,9 @@
                     await userDocRef.update({ online: true });
                 }
 
+                // Save user info to localStorage
+                localStorage.setItem('flipchatUser', JSON.stringify({ username, password }));
+
                 // Success: Enter App
                 AppState.user = username;
                 document.getElementById('auth-screen').classList.add('hidden');
@@ -565,6 +583,39 @@
                 NotificationSystem.show("Authentication failed", "error");
             }
         }
+
+        static async autoLogin() {
+            const savedUser = JSON.parse(localStorage.getItem('flipchatUser'));
+            console.log("Saved user from localStorage:", savedUser);
+            if (savedUser) {
+                try {
+                    const userDocRef = db.collection("users").doc(savedUser.username);
+                    const doc = await userDocRef.get();
+
+                    if (!doc.exists || doc.data().password !== savedUser.password) {
+                        console.warn("Saved credentials are invalid.");
+                        return;
+                    }
+
+                    await userDocRef.update({ online: true });
+
+                    // Success: Enter App
+                    AppState.user = savedUser.username;
+                    document.getElementById('auth-screen').classList.add('hidden');
+                    document.getElementById('main-app').classList.remove('hidden');
+                    CallService.init();
+                    ChatService.loadContacts();
+                    NotificationSystem.show(`Welcome back, ${savedUser.username}!`);
+
+                } catch (e) {
+                    console.error("Auto-login failed:", e);
+                }
+            } else {
+                console.log("No saved user found in localStorage.");
+            }
+        }
+
+        
     }
 
     /**
@@ -696,22 +747,31 @@
 
         static async sendFile() {
             const file = document.getElementById('file-input').files[0];
-            if(!file) return;
+            if (!file) {
+                NotificationSystem.show("No file selected", "error");
+                console.error("No file selected");
+                return;
+            }
 
             NotificationSystem.show("Uploading file...");
             const ref = storage.ref(`uploads/${AppState.chatId}/${Date.now()}_${file.name}`);
-            
+
             try {
-                await ref.put(file);
-                const url = await ref.getDownloadURL();
+                console.log("Uploading file:", file.name);
+                const snapshot = await ref.put(file);
+                const url = await snapshot.ref.getDownloadURL();
+                console.log("File uploaded successfully. URL:", url);
                 await this.sendMessage('image', url);
+                NotificationSystem.show("File uploaded successfully", "success");
             } catch (e) {
+                console.error("File upload error:", e);
                 NotificationSystem.show("File upload error", "error");
             }
         }
 
         static async startRecording() {
             try {
+                console.log("Requesting microphone access...");
                 const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
                 this.mediaRecorder = new MediaRecorder(stream);
                 this.audioChunks = [];
@@ -723,15 +783,26 @@
                 this.mediaRecorder.onstop = async () => {
                     const audioBlob = new Blob(this.audioChunks, { type: 'audio/webm' });
                     const ref = storage.ref(`voice/${AppState.chatId}/${Date.now()}.webm`);
-                    await ref.put(audioBlob);
-                    const url = await ref.getDownloadURL();
-                    this.sendMessage('audio', url);
-                    stream.getTracks().forEach(track => track.stop());
+                    try {
+                        console.log("Uploading voice message...");
+                        await ref.put(audioBlob);
+                        const url = await ref.getDownloadURL();
+                        console.log("Voice message uploaded successfully. URL:", url);
+                        this.sendMessage('audio', url);
+                        NotificationSystem.show("Voice message sent", "success");
+                    } catch (e) {
+                        console.error("Voice message upload error:", e);
+                        NotificationSystem.show("Voice message upload error", "error");
+                    } finally {
+                        stream.getTracks().forEach(track => track.stop());
+                    }
                 };
 
                 this.mediaRecorder.start();
                 document.getElementById('record-btn').classList.add('recording');
+                NotificationSystem.show("Recording started", "info");
             } catch (e) {
+                console.error("Microphone access denied", e);
                 NotificationSystem.show("Microphone access denied", "error");
             }
         }
